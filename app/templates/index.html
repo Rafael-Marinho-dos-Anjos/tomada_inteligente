@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tela Inicial</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="user-info">
+            <div class="user-icon"></div>
+            <span>Bem Vindo, {{ user}}</span>
+        </div>
+        <div class="menu-icon" onclick="toggleDropdown()">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="dropdown" id="dropdownMenu">
+                <ul>
+                    <li><a href="#">Perfil</a></li>
+                    <li><a href="#">Sair</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="buttons">
+            <button>Relatório de consumo</button>
+            <button>Minhas Tomadas</button>
+            <button>Histórico de Consumo</button>
+        </div>
+        <div class="chart">
+            <h3>Novembro</h3>
+            <div class="chart-content"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
