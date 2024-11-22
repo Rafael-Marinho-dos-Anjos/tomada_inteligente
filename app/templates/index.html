@@ -9,8 +9,10 @@
 <body>
     <div class="header">
         <div class="user-info">
-            <div class="user-icon"></div>
-            <span>Bem Vindo, {{ user}}</span>
+            <div class="user-icon">
+                <img src="{{ url_for('static', filename=profile_img) }}" alt="Foto do perfil" class="user-img">
+            </div>
+            <span>Bem Vindo, {{ user }}</span>
         </div>
         <div class="menu-icon" onclick="toggleDropdown()">
             <div class="bar"></div>
@@ -19,7 +21,7 @@
             <div class="dropdown" id="dropdownMenu">
                 <ul>
                     <li><a href="#">Perfil</a></li>
-                    <li><a href="#">Sair</a></li>
+                    <li><a href="/logout/{{ token }}">Sair</a></li>
                 </ul>
             </div>
         </div>
@@ -31,8 +33,9 @@
             <button>Histórico de Consumo</button>
         </div>
         <div class="chart">
-            <h3>Novembro</h3>
-            <div class="chart-content"></div>
+            <div class="chart-content">
+                <img src="{{ url_for('static', filename=graph_path) }}" alt="Gráfico de consumo" class="chart-img">
+            </div>
         </div>
     </div>
 
