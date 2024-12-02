@@ -138,3 +138,55 @@ body {
     width: auto;
     height: auto;
 }
+
+.link-text {
+    color:rgb(0, 109, 149);
+    font-weight: bold;
+}
+
+.device-container {
+    border-radius: 15px;
+    background-color: #dde6f2;
+    border: 2px solid #577aae;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    align-items: center;
+    overflow:scroll;
+    height:400px;
+}
+
+.device-card {
+    border-radius: 15px;
+    background-color: #b1bfd8;
+    /* border: 2px solid #577aae; */
+    display: flex;
+    gap: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+    align-items: center;
+}
+
+.device-card button {
+    background-color: #70a4ec;
+    border: none;
+    border-radius: 20px;
+    padding: 10px;
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 16px;
+    width: 200px;
+}
+
+.device-description {
+    justify-content: stretch;
+    margin: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+.device-text {
+    color:rgb(0, 0, 0);
+    font-weight: bold;
+}
+

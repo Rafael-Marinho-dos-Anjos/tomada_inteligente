@@ -1,36 +1,31 @@
 #include "driver/timer.h"
 #include "SPIFFS.h"
 #include <WiFi.h>
+#include <HTTPClient.h>
 
-// Bluetooth é muito pesado pra utilizar junto :'(
-// #include <BLEDevice.h>
-// #include <BLEServer.h>
-
-// #define SERVICE_UUID        "ec8020a2-6317-4166-90c3-d52a7d904027"
-// #define CHARACTERISTIC_UUID "f6350992-dd73-4afe-b170-2961b66c75d7"
 
 // Definição do timer
 #define TIMER_GROUP TIMER_GROUP_0
 #define TIMER_NUMBER TIMER_0
 
 // Constantes do sistema
-const int config_pin = 36; // Botão para ativar modo de configuração
-const int tens_pin = 34; // Pino de leitura da tensão
-const int curr_pin = 35; // Pino de leitura da corrente
-const int cap_pins[] = {21, 22, 23, 25, 26, 27, 32, 33}; // Pinos de chaveamento do banco de capacitores
+const int config_pin = 4; // Botão para ativar modo de configuração
+const int tens_pin = 5; // Pino de leitura da tensão
+const int curr_pin = 6; // Pino de leitura da corrente
+const int cap_pins[] = {18, 19, 20, 21, 22, 23, 15, 17}; // Pinos de chaveamento do banco de capacitores
+bool cap_switch[] = {false, false, false, false, false, false, false, false};
 
-const String device_name = "BT - Tomada Inteligente"; // Nome do dispositivo a ser mostrado no Bluetooth
+const int send_data_period = 3; // Período entre dois envios de dados seguidos em segundos
+const String server_url = "http://10.0.0.222:5000/"; // Endereço do servidor da aplicação web
 
-const int send_data_period = 300; // Período entre dois envios de dados seguidos em segundos
-const String server_url = ""; // Endereço do servidor da aplicação web
-
-const int samp_freq = 3000; // Frequência de amostragem
+const int samp_freq = 1000; // Frequência de amostragem
 const int samp_period = 1000000 / samp_freq; // Período da amostragem
 
 const float rel_transf_tens = 1.0; // Relação transformação da tensão lida
 const float rel_transf_curr = 1.0; // Relação transformação da corrente lida
 
-const float cap_base = 0.000000011; // Capacitância base
+const float cap_base = 0.0011; // Capacitância base
+const String cap_str = "11e-4"; // String valor capacitância base
 const int cap_num = 8; // Número de capacitores
 
 const float pi = 3.14159265359;
@@ -62,27 +57,20 @@ float current_curr; // Leitura atual da corrente convertida
 float last_tens = 0; // Leitura anterior da tensao
 float last_curr = 0; // Leitura anterior da corrente
 
+// Acumuladores de leitura
+float meanS = 0;
+float meanV = 0;
+float meanFp = 0;
+float meanFreq = 0;
+
 // Variaveis de configuração do usuário
-String ssid = "";
-String wifi_password = "";
+String ssid = "Casa06";
+String wifi_password = "1q2w3e4r";
 String username = "";
-String device_code = "";
+String device_code = "ABCD";
 
 bool config_loaded = false;
 
-// Bluetooth
-// BLEServer* pServer = NULL;
-// BLECharacteristic* pCharacteristic = NULL;
-
-// class CharacteristicCallBack: public BLECharacteristicCallbacks {
-//   void onWrite(BLECharacteristic *pChar) override { 
-//     String config_string = pChar->getValue();
-
-//     // TODO -> Leitura dos valores
-    
-//     config_loaded = true;
-//   }
-// };
 
 void save_config(String wifi_ssid, String wifi_psswrd, String usrnm, String dvc_cd) {
   File file = SPIFFS.open("/config.txt", FILE_WRITE);
@@ -181,20 +169,40 @@ void power() {
 }
 
 void cap_bank_update() {
-  float capacitance = q / (2 * pi * frequence * tens_rms);
+  if (frequence == 0) {
+    return;
+  }
+  float capacitance = q / (2 * pi * frequence * pow(tens_rms, 2));
+  Serial.print("q: ");
+  Serial.print(q);
+  Serial.print("  freq: ");
+  Serial.print(frequence);
+  Serial.print("  v: ");
+  Serial.print(tens_rms);
+  Serial.print("  cap_tot: ");
+  Serial.print(capacitance*1000000000);
   int switching = capacitance / cap_base;
   int val = pow(2, cap_num);
+  Serial.print("uF  switch: ");
+  Serial.print(switching);
+  Serial.print("  val: ");
+  Serial.println(val);
 
   for (int i = cap_num - 1; i >= 0; i--) {
     val = val / 2;
     if (switching >= val) {
       digitalWrite(cap_pins[i], HIGH);
+      cap_switch[i] = true;
+      Serial.print("1");
       switching -= val;
     }
     else {
       digitalWrite(cap_pins[i], LOW);
+      cap_switch[i] = false;
+      Serial.print("0");
     }
   }
+  Serial.println();
 }
 
 void reading() {
@@ -243,9 +251,62 @@ void zero_passage() {
   last_curr = curr_read;
 }
 
-void IRAM_ATTR onTimer(void *params) {
+//void IRAM_ATTR onTimer(void *params) {
+void leitura() {
     reading();
     zero_passage();
+}
+
+void postMeasure(float sMean, float fpMean, float freqMean, float vMean) {
+  if(WiFi.status()== WL_CONNECTED){
+    WiFiClient client;
+    HTTPClient http;
+
+    Serial.println("POST:");
+  
+    // Your Domain name with URL path or IP address with path
+    http.begin(client, server_url + "send_measure/" + device_code + "/");
+    Serial.println(server_url + "send_measure/" + device_code + "/");
+    
+    // If you need Node-RED/server authentication, insert user and password below
+    //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
+    
+    // Specify content-type header
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+    // Data to send with HTTP POST
+    String httpRequestData = "device_code=";
+    httpRequestData += device_code;
+    httpRequestData += "&s=";
+    httpRequestData += String(sMean);
+    httpRequestData += "&v=";
+    httpRequestData += String(vMean);
+    httpRequestData += "&fp=";
+    httpRequestData += String(fpMean);
+    httpRequestData += "&freq=";
+    httpRequestData += String(freqMean);
+    httpRequestData += "&cap_base=";
+    httpRequestData += cap_str;
+    httpRequestData += "&cap_switch=";
+    for (int i = cap_num - 1; i >= 0; i--) {
+      if (cap_switch[i]) {
+        httpRequestData += "1";
+      }
+      else {
+        httpRequestData += "0";
+      }
+    }
+
+    Serial.println(httpRequestData);
+
+    // Send HTTP POST request
+    int httpResponseCode = http.POST(httpRequestData);
+    
+    // If you need an HTTP request with a content type: application/json, use the following:
+    //http.addHeader("Content-Type", "application/json");
+    //int httpResponseCode = http.POST("{\"api_key\":\"tPmAT5Ab3j7F9\",\"sensor\":\"BME280\",\"value1\":\"24.25\",\"value2\":\"49.54\",\"value3\":\"1005.14\"}");
+
+    http.end();
+  }
 }
 
 void setup() {
@@ -258,49 +319,68 @@ void setup() {
       pinMode(cap_pins[i], OUTPUT);
     }
 
-    if (digitalRead(config_pin == HIGH)) {
-      config_wifi();
-
-//       BLEDevice::init(device_name);
-//       pServer = BLEDevice::createServer();
-//       BLEService *pService = pServer->createService(SERVICE_UUID);
-//       
-//       pCharacteristic = pService->createCharacteristic(
-//                       CHARACTERISTIC_UUID,
-//                       BLECharacteristic::PROPERTY_READ   |
-//                       BLECharacteristic::PROPERTY_WRITE 
-//                     );         
-//   
-//       pCharacteristic->setCallbacks(new CharacteristicCallBack());
-//       pService->start();
-//       
-//       while(!config_loaded) {
-//         delay(100);
-//       }
-    }
-    else {
-      load_config();
-    }
+    // if (digitalRead(config_pin) == HIGH) {
+    //   config_wifi();
+    // }
+    // else {
+    //   load_config();
+    // }
     
     // Iniciando o timer
     timer_config_t config;
-    config.divider = 80;                      // Divisor do clock
-    config.counter_dir = TIMER_COUNT_UP;      // Contagem crescente
-    config.counter_en = TIMER_PAUSE;          // Inicia pausado
-    config.alarm_en = TIMER_ALARM_EN;         // Habilita alarme
-    config.auto_reload = TIMER_AUTORELOAD_EN; // Recarregar automaticamente
+    // config.divider = 80;                      // Divisor do clock
+    // config.counter_dir = TIMER_COUNT_UP;      // Contagem crescente
+    // config.counter_en = TIMER_PAUSE;          // Inicia pausado
+    // config.alarm_en = TIMER_ALARM_EN;         // Habilita alarme
+    // config.auto_reload = TIMER_AUTORELOAD_EN; // Recarregar automaticamente
 
-    timer_init(TIMER_GROUP, TIMER_NUMBER, &config);
+    // timer_init(TIMER_GROUP, TIMER_NUMBER, &config);
 
-    // Configuração do timer
-    timer_set_alarm_value(TIMER_GROUP, TIMER_NUMBER, samp_period);
-    timer_enable_intr(TIMER_GROUP, TIMER_NUMBER);
-    timer_isr_register(TIMER_GROUP, TIMER_NUMBER, onTimer, NULL, ESP_INTR_FLAG_IRAM, NULL);
+    // // Configuração do timer
+    // timer_set_alarm_value(TIMER_GROUP, TIMER_NUMBER, samp_period);
+    // timer_enable_intr(TIMER_GROUP, TIMER_NUMBER);
+    // timer_isr_register(TIMER_GROUP, TIMER_NUMBER, onTimer, NULL, ESP_INTR_FLAG_IRAM, NULL);
 
-    // Inicia o timer
-    timer_start(TIMER_GROUP, TIMER_NUMBER);
+    // // Inicia o timer
+    // timer_start(TIMER_GROUP, TIMER_NUMBER);
+
+    Serial.begin(9600);
+
+    WiFi.begin(ssid, wifi_password);
+
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
 }
 
 void loop() {
-    // Não faz nada
+    for (int i = 0; i < send_data_period; i++) {
+      for (int j = 0; j < samp_freq; j++) {
+        unsigned long elapsed_time = micros();
+        leitura();
+        elapsed_time = micros() - elapsed_time;
+        //Serial.print(elapsed_time);
+        //Serial.print(" ");
+        //Serial.println(samp_period);
+        if (elapsed_time < samp_period){
+          delayMicroseconds(samp_period - elapsed_time);
+        }
+      }
+      meanV += tens_rms;
+      meanS += s;
+      meanFp += fp;
+      meanFreq += frequence;
+    }
+
+    meanV = meanV / send_data_period;
+    meanS = meanS / send_data_period;
+    meanFp = meanFp / send_data_period;
+    meanFreq = meanFreq / send_data_period;
+
+    postMeasure(meanS, meanFp, meanFreq, meanV);
+
+    meanS = 0;
+    meanFp = 0;
+    meanFreq = 0;
 }

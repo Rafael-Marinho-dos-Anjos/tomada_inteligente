@@ -73,3 +73,12 @@ body {
   .error {
     color: #ff0000;
   }
+
+  .sucess {
+    color: #009f00;
+  }
+  
+.link-text {
+  color:rgb(0, 109, 149);
+  font-weight: bold;
+}

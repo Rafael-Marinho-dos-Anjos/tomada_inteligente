@@ -15,3 +15,7 @@ window.onclick = function(event) {
         }
     }
 };
+
+function putElement(code) {
+    document.body.innerHTML(code);
+}

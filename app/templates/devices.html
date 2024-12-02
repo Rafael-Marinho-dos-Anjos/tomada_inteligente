@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tela Inicial</title>
+    <title>Minhas Tomadas</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
@@ -28,16 +28,11 @@
     </div>
     <div class="container">
         <div class="buttons">
-            <button>Relatório de consumo</button>
-            <form action="/tomadas/{{ token }}">
-                <button type="submit">Minhas Tomadas</button>
-            </form>
-            <button>Histórico de Consumo</button>
+            <a href="/{{ token }}" class="link-text">< Home</a>
+            <button>Nova Tomada</button>
         </div>
-        <div class="chart">
-            <div class="chart-content">
-                <img src="{{ url_for('static', filename=graph_path) }}" alt="Gráfico de consumo" class="chart-img">
-            </div>
+        <div class="device-container">
+            {{ devices }}
         </div>
     </div>
 
