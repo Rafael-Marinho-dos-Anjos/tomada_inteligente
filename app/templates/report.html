@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="user-info">
+            <div class="user-icon">
+                <img src="{{ url_for('static', filename=profile_img) }}" alt="Foto do perfil" class="user-img">
+            </div>
+            <span>Bem Vindo, {{ user }}</span>
+        </div>
+        <div class="menu-icon" onclick="toggleDropdown()">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="dropdown" id="dropdownMenu">
+                <ul>
+                    <li><a href="#">Perfil</a></li>
+                    <li><a href="/logout/{{ token }}">Sair</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="buttons">
+            <div>
+                <a href="/{{ token }}" class="link-text">< Home</a>
+            </div>
+            <div class="table">
+                <h4>fp médio (consumido): {{ mean_fp }}</h4>
+                <h4>fp médio (corrigido): {{ mean_fp_corr }}</h4>
+                <h4>Potência Aparente Média: {{ mean_s }}VA</h4>
+                <h4>Potência Reativa Média(consumido): {{ mean_q }}VAr</h4>
+                <h4>Potência Reativa Média(corrigido): {{ mean_q_corr }}VAr</h4>
+                <h4>Frequência Média: {{ mean_freq }}Hz</h4>
+            </div>
+        </div>
+        <div class="chart">
+            <label for="imageSelector">Selecione o Gráfico</label>
+            <select id="imageSelector">
+                <option value="{{ url_for('static', filename=fp_graph_path) }}">fp</option>
+                <option value="{{ url_for('static', filename=fp_corr_graph_path) }}">fp corrigido</option>
+                <option value="{{ url_for('static', filename=s_graph_path) }}">Potência Aparente</option>
+                <option value="{{ url_for('static', filename=q_graph_path) }}">Potência Reativa</option>
+                <option value="{{ url_for('static', filename=q_corr_graph_path) }}">Potência Reativa corrigida</option>      
+                <option value="{{ url_for('static', filename=freq_graph_path) }}">Frequência</option>      
+            </select>
+            <div class="chart-content">
+                <img id="imgToShow" src="{{ url_for('static', filename=fp_graph_path) }}" alt="Gráfico de consumo" class="chart-img">
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        const imageSelector = document.getElementById('imageSelector');
+        const selectedImage = document.getElementById('imgToShow');
+
+        imageSelector.addEventListener('change', function () {
+            const selectedVal = this.value;
+
+            selectedImage.src = selectedVal;
+            selectedImage.style.display = 'block;'
+        });
+    </script>
+</body>
+</html>

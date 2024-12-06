@@ -28,7 +28,9 @@
     </div>
     <div class="container">
         <div class="buttons">
-            <button>Relatório de consumo</button>
+            <form action="/relatorio/{{ token }}">
+                <button type="submit">Relatório de consumo</button>
+            </form>
             <form action="/tomadas/{{ token }}">
                 <button type="submit">Minhas Tomadas</button>
             </form>

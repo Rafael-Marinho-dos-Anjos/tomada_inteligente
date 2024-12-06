@@ -118,6 +118,14 @@ body {
 }
 
 /* Estilo do gráfico */
+.table {
+    border-radius: 15px;
+    background-color: #eef2f8;
+    border: 2px solid #a8c3e8;
+    padding: 10px;
+    text-align: left;
+}
+
 .chart {
     border-radius: 15px;
     background-color: #a8c3e8;

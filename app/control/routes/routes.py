@@ -52,13 +52,14 @@ def index(token):
         .filter(Read.date_time >= begin).all()
     
     consume = dict()
+    reads_per_day = 28800
     for read in data:
         day = read.date_time.day
 
         if day in consume:
-            consume[day] += read.s
+            consume[day] += read.s / reads_per_day
         else:
-            consume[day] = read.s
+            consume[day] = read.s / reads_per_day
     
     data = list()
     days = sorted(consume.keys())
@@ -194,6 +195,219 @@ def tomadas(token):
     )
 
 
+@app.route("/tomadas/<token>/<cod_tomada>/")
+def tomada(token, cod_tomada):
+    user = UserManager().get_user_by_token(token)
+    if user is None:
+        return redirect(url_for(".login", msg="Sessão expirada"))
+    
+    date = datetime.today()
+    begin = datetime(year=date.year, month=date.month, day=1, hour=0, minute=0, second=0)
+    
+    data = Read.query\
+        .join(Device, Read.id_device == Device.id)\
+        .add_columns(Read.s, Read.corr, Read.fp, Read.freq, Read.date_time)\
+        .filter(Device.token==cod_tomada)\
+        .filter(Read.date_time >= begin).order_by(Read.date_time).all()
+    
+    fp = list()
+    fp_corr = list()
+    s = list()
+    q = list()
+    q_corr = list()
+    freq = list()
+    for read in data:
+        fp.append(read.fp)
+        s.append(read.s)
+        freq.append(read.freq)
+        q_ = read.s * (1 - read.fp ** 2) ** 0.5
+        q.append(q_)
+        q_corr_ = q_ - read.corr
+        q_corr.append(q_corr_)
+        fp_corr_ = abs(1 - (q_corr_ / read.s) ** 2) ** 0.5
+        fp_corr.append(fp_corr_)
+
+    fp_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        fp,
+        f"Fator de potência",
+        "Leitura",
+        "fp"
+    )
+    mean_fp = sum(fp)/len(fp)
+
+    freq_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        freq,
+        f"Frequência",
+        "Leitura",
+        "Hz"
+    )
+    mean_freq = sum(freq)/len(freq)
+    
+    fp_corr_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        fp_corr,
+        f"Fator de potência corrigido",
+        "Leitura",
+        "fp"
+    )
+    mean_fp_corr = sum(fp_corr)/len(fp_corr)
+    
+    s_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        s,
+        f"Potência Aparente",
+        "Leitura",
+        "W"
+    )
+    mean_s = sum(s)/len(s)
+    
+    q_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        q,
+        f"Potência Reativa",
+        "Leitura",
+        "VA"
+    )
+    mean_q = sum(q)/len(q)
+    
+    q_corr_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        q_corr,
+        f"Potência Reativa Corrigida",
+        "Leitura",
+        "VA"
+    )
+    mean_q_corr = sum(q_corr)/len(q_corr)
+
+    return render_template(
+        "device.html",
+        user=user.name,
+        profile_img="images/no_profile.png",
+        fp_graph_path=fp_graph_path,
+        fp_corr_graph_path=fp_corr_graph_path,
+        s_graph_path=s_graph_path,
+        q_graph_path=q_graph_path,
+        q_corr_graph_path=q_corr_graph_path,
+        freq_graph_path=freq_graph_path,
+        mean_fp=f"{mean_fp:.2f}",
+        mean_freq=f"{mean_freq:.2f}",
+        mean_fp_corr=f"{mean_fp_corr:.2f}",
+        mean_s=f"{mean_s:.2f}",
+        mean_q=f"{mean_q:.2f}",
+        mean_q_corr=f"{mean_q_corr:.2f}",
+        token=token
+    )
+
+
+@app.route("/relatorio/<token>/")
+def relatorio(token):
+    user = UserManager().get_user_by_token(token)
+    if user is None:
+        return redirect(url_for(".login", msg="Sessão expirada"))
+    
+    date = datetime.today()
+    begin = datetime(year=date.year, month=date.month, day=1, hour=0, minute=0, second=0)
+
+    data = Read.query\
+        .join(Device, Read.id_device == Device.id)\
+        .join(User, Device.user_id == User.id)\
+        .add_columns(Read.s, Read.corr, Read.fp, Read.freq, Read.date_time)\
+        .filter(User.id==user.id)\
+        .filter(Read.date_time >= begin).order_by(Read.date_time).all()
+    
+    fp = list()
+    fp_corr = list()
+    s = list()
+    q = list()
+    q_corr = list()
+    freq = list()
+    for read in data:
+        fp.append(read.fp)
+        s.append(read.s)
+        freq.append(read.freq)
+        q_ = read.s * (1 - read.fp ** 2) ** 0.5
+        q.append(q_)
+        q_corr_ = q_ - read.corr
+        q_corr.append(q_corr_)
+        fp_corr_ = abs(1 - (q_corr_ / read.s) ** 2) ** 0.5
+        fp_corr.append(fp_corr_)
+
+    fp_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        fp,
+        f"Fator de potência",
+        "Leitura",
+        "fp"
+    )
+    mean_fp = sum(fp)/len(fp)
+
+    freq_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        freq,
+        f"Frequência",
+        "Leitura",
+        "Hz"
+    )
+    mean_freq = sum(freq)/len(freq)
+    
+    fp_corr_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        fp_corr,
+        f"Fator de potência corrigido",
+        "Leitura",
+        "fp"
+    )
+    mean_fp_corr = sum(fp_corr)/len(fp_corr)
+    
+    s_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        s,
+        f"Potência Aparente",
+        "Leitura",
+        "W"
+    )
+    mean_s = sum(s)/len(s)
+    
+    q_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        q,
+        f"Potência Reativa",
+        "Leitura",
+        "VA"
+    )
+    mean_q = sum(q)/len(q)
+    
+    q_corr_graph_path = plot_n_save(
+        [i for i in range(len(data))],
+        q_corr,
+        f"Potência Reativa Corrigida",
+        "Leitura",
+        "VA"
+    )
+    mean_q_corr = sum(q_corr)/len(q_corr)
+
+    return render_template(
+        "report.html",
+        user=user.name,
+        profile_img="images/no_profile.png",
+        fp_graph_path=fp_graph_path,
+        fp_corr_graph_path=fp_corr_graph_path,
+        s_graph_path=s_graph_path,
+        q_graph_path=q_graph_path,
+        q_corr_graph_path=q_corr_graph_path,
+        freq_graph_path=freq_graph_path,
+        mean_fp=f"{mean_fp:.2f}",
+        mean_freq=f"{mean_freq:.2f}",
+        mean_fp_corr=f"{mean_fp_corr:.2f}",
+        mean_s=f"{mean_s:.2f}",
+        mean_q=f"{mean_q:.2f}",
+        mean_q_corr=f"{mean_q_corr:.2f}",
+        token=token
+    )
+
+
 @app.route("/nova_tomada/<token>")
 def new_device(token):
     user = UserManager().get_user_by_token(token)
@@ -215,11 +429,6 @@ def new_device(token):
 
 @app.route("/historico/<token>")
 def historico(token):
-    pass
-
-
-@app.route("/relatorio/<token>")
-def relatorio(token):
     pass
 
 

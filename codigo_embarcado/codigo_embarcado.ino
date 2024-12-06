@@ -21,11 +21,11 @@ const String server_url = "http://10.0.0.222:5000/"; // Endereço do servidor da
 const int samp_freq = 1000; // Frequência de amostragem
 const int samp_period = 1000000 / samp_freq; // Período da amostragem
 
-const float rel_transf_tens = 1.0; // Relação transformação da tensão lida
-const float rel_transf_curr = 1.0; // Relação transformação da corrente lida
+const float rel_transf_tens = 160.0; // Relação transformação da tensão lida
+const float rel_transf_curr = 10.0; // Relação transformação da corrente lida
 
-const float cap_base = 0.0011; // Capacitância base
-const String cap_str = "11e-4"; // String valor capacitância base
+const float cap_base = 0.00000056; // Capacitância base
+const String cap_str = "560e-9"; // String valor capacitância base
 const int cap_num = 8; // Número de capacitores
 
 const float pi = 3.14159265359;
@@ -34,6 +34,11 @@ const float pi = 3.14159265359;
 int tens_per_count = 0; // Contagem do periodo da tensao
 int curr_per_count = 0; // Contagem do periodo da corrente
 int phase_count = 0; // Contagem do periodo da defasagem
+
+bool is_reading_tens = true; // Flag de leitura da tensão
+bool is_reading_curr = false; // Flag de leitura da corrente
+bool counting_tens = false; // Flag de leitura da tensão
+bool counting_curr = false; // Flag de leitura da corrente
 
 float tens_acc = 0; // Acumulador tensão
 float curr_acc = 0; // Acumulador corrente
@@ -56,6 +61,9 @@ float current_curr; // Leitura atual da corrente convertida
 
 float last_tens = 0; // Leitura anterior da tensao
 float last_curr = 0; // Leitura anterior da corrente
+
+int cap_count = 0; // Contador para atualização do banco
+float cap_acc = 0; // Acumulador da capacitância
 
 // Acumuladores de leitura
 float meanS = 0;
@@ -156,7 +164,7 @@ void config_wifi() {
 }
 
 float conversion(int val, float rel) {
-  float pin_tension = val * 1.65 / 4096;
+  float pin_tension = val * 3.3 / 4096;
   pin_tension -= 1.65;
 
   return pin_tension * rel;
@@ -173,36 +181,48 @@ void cap_bank_update() {
     return;
   }
   float capacitance = q / (2 * pi * frequence * pow(tens_rms, 2));
-  Serial.print("q: ");
-  Serial.print(q);
-  Serial.print("  freq: ");
-  Serial.print(frequence);
-  Serial.print("  v: ");
-  Serial.print(tens_rms);
-  Serial.print("  cap_tot: ");
-  Serial.print(capacitance*1000000000);
+
+  cap_acc += capacitance;
+  cap_count += 1;
+
+  if (cap_count < 50) {
+    return;
+  }
+
+  capacitance = cap_acc / cap_count;
+  cap_acc = 0;
+  cap_count = 0;
+  
+  //Serial.print("q: ");
+  //Serial.print(q);
+  //Serial.print("  freq: ");
+  //Serial.print(frequence);
+  //Serial.print("  v: ");
+  //Serial.print(tens_rms);
+  //Serial.print("  cap_tot: ");
+  //Serial.print(capacitance*1000000000);
   int switching = capacitance / cap_base;
   int val = pow(2, cap_num);
-  Serial.print("uF  switch: ");
-  Serial.print(switching);
-  Serial.print("  val: ");
-  Serial.println(val);
+  //Serial.print("nF  switch: ");
+  //Serial.print(switching);
+  //Serial.print("  val: ");
+  //Serial.println(val);
 
   for (int i = cap_num - 1; i >= 0; i--) {
     val = val / 2;
     if (switching >= val) {
       digitalWrite(cap_pins[i], HIGH);
       cap_switch[i] = true;
-      Serial.print("1");
+      //Serial.print("1");
       switching -= val;
     }
     else {
       digitalWrite(cap_pins[i], LOW);
       cap_switch[i] = false;
-      Serial.print("0");
+      //Serial.print("0");
     }
   }
-  Serial.println();
+  //Serial.println();
 }
 
 void reading() {
@@ -210,41 +230,61 @@ void reading() {
   tens_read = analogRead(tens_pin);
   curr_read = analogRead(curr_pin);
 
-  tens_per_count++;
-  curr_per_count++;
-  phase_count++;
-
   // Conversão da leitura
   tens_read = conversion(tens_read, rel_transf_tens);
   curr_read = conversion(curr_read, rel_transf_curr);
 
   // Acumuladores
-  tens_acc += sq(tens_read);
-  curr_acc += sq(curr_read);
+  if (counting_tens) {
+    tens_per_count++;
+    tens_acc += sq(tens_read);
+  }
+  if (counting_curr) {
+    curr_per_count++;
+    curr_acc += sq(curr_read);
+  }
+  phase_count++;
 }
 
 void zero_passage() {
   // Passagem por zero
   if (tens_read >= 0 and last_tens < 0) {
-    frequence = samp_freq / tens_per_count;
-    tens_rms = sqrt(tens_acc / tens_per_count);
-
-    tens_acc = 0;
-    tens_per_count = 0;
     phase_count = 0;
+    if (is_reading_tens && counting_tens) {
+      frequence = samp_freq / tens_per_count;
+      tens_rms = sqrt(tens_acc / tens_per_count);
+  
+      tens_acc = 0;
+      tens_per_count = 0;
+
+      is_reading_tens = false;
+      counting_tens = false;
+      is_reading_curr = true;
+    }
+    if (is_reading_tens && !counting_tens) {
+      counting_tens = true;
+    }
   }
   
   // Passagem por zero
   if (curr_read >= 0 and last_curr < 0) {
-    curr_rms = sqrt(curr_acc / curr_per_count);
-
     phase = 2 * pi * phase_count * frequence / samp_freq;
     fp = cos(phase);
+    if (is_reading_curr && counting_curr) {
+      curr_rms = sqrt(curr_acc / curr_per_count);
+  
+      curr_acc = 0;
+      curr_per_count = 0;
+      power();
+      cap_bank_update();
 
-    curr_acc = 0;
-    curr_per_count = 0;
-    power();
-    cap_bank_update();
+      is_reading_curr = false;
+      counting_curr = false;
+      is_reading_tens = true;
+    }
+    if (is_reading_curr && !counting_curr) {
+      counting_curr = true;
+    }
   }
 
   last_tens = tens_read;
@@ -380,6 +420,7 @@ void loop() {
 
     postMeasure(meanS, meanFp, meanFreq, meanV);
 
+    meanV = 0;
     meanS = 0;
     meanFp = 0;
     meanFreq = 0;
