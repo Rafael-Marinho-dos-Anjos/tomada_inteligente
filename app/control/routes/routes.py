@@ -217,14 +217,18 @@ def tomada(token, cod_tomada):
     q_corr = list()
     freq = list()
     for read in data:
-        fp.append(read.fp)
         s.append(read.s)
         freq.append(read.freq)
         q_ = read.s * (1 - read.fp ** 2) ** 0.5
         q.append(q_)
         q_corr_ = q_ - read.corr
         q_corr.append(q_corr_)
-        fp_corr_ = abs(1 - (q_corr_ / read.s) ** 2) ** 0.5
+        if read.s != 0:
+            fp.append(read.fp)
+            fp_corr_ = abs(1 - (q_corr_ / read.s) ** 2) ** 0.5
+        else:
+            fp.append(1)
+            fp_corr_ = 1
         fp_corr.append(fp_corr_)
 
     fp_graph_path = plot_n_save(
@@ -324,14 +328,18 @@ def relatorio(token):
     q_corr = list()
     freq = list()
     for read in data:
-        fp.append(read.fp)
         s.append(read.s)
         freq.append(read.freq)
         q_ = read.s * (1 - read.fp ** 2) ** 0.5
         q.append(q_)
         q_corr_ = q_ - read.corr
         q_corr.append(q_corr_)
-        fp_corr_ = abs(1 - (q_corr_ / read.s) ** 2) ** 0.5
+        if read.s != 0:
+            fp.append(read.fp)
+            fp_corr_ = abs(1 - (q_corr_ / read.s) ** 2) ** 0.5
+        else:
+            fp.append(1)
+            fp_corr_ = 1
         fp_corr.append(fp_corr_)
 
     fp_graph_path = plot_n_save(
